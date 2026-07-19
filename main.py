@@ -73,7 +73,8 @@ async def generate(req: GenRequest):
 
             # 格式修正：确保标题、分隔线、列表项前后有空行
             normalized = fix_markdown(raw)
-            yield send("chunk", normalized)
+            # JSON 编码避免换行符破坏 SSE 协议
+            yield send("chunk", json.dumps(normalized, ensure_ascii=False))
 
             yield send("done", json.dumps({"title": meta["title"]}, ensure_ascii=False))
 

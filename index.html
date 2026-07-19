@@ -480,7 +480,7 @@ function handle(event, data) {
     log(data);
   } else if (event === 'chunk') {
     wrap.style.display = 'block';
-    rawText += data;
+    rawText = JSON.parse(data);
     out.innerHTML = marked.parse(rawText);
     out.scrollTop = out.scrollHeight;
   } else if (event === 'done') {
