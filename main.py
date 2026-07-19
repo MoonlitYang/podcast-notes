@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import urllib.request, urllib.error
-import anthropic
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -51,19 +51,25 @@ async def generate(req: GenRequest):
                 )
                 yield send("progress", "✅ 转录完成")
 
-            # 2. 用 Claude 生成笔记
-            yield send("progress", "正在用 Claude 生成结构化笔记…")
-            notes = ""
-            client = anthropic.Anthropic()  # 使用 ANTHROPIC_API_KEY 环境变量
+            # 2. 用 DeepSeek 生成笔记
+            deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
+            if not deepseek_key:
+                yield send("error", "服务器未配置 DEEPSEEK_API_KEY，请联系管理员")
+                return
+
+            yield send("progress", "正在用 AI 生成结构化笔记…")
+            client = OpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com")
             prompt = build_prompt(meta, shownotes, transcript)
 
-            with client.messages.stream(
-                model="claude-opus-4-8",
-                max_tokens=8192,
+            stream_resp = client.chat.completions.create(
+                model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
-            ) as stream_resp:
-                for text in stream_resp.text_stream:
-                    notes += text
+                max_tokens=8192,
+                stream=True,
+            )
+            for chunk in stream_resp:
+                text = chunk.choices[0].delta.content or ""
+                if text:
                     yield send("chunk", text)
 
             yield send("done", json.dumps({"title": meta["title"]}, ensure_ascii=False))
