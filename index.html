@@ -7,196 +7,295 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
     font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
-    background: #f5f5f0;
-    color: #1a1a1a;
+    background: #0a0a0f;
+    color: #e0e0e8;
     min-height: 100vh;
-    padding: 40px 20px;
+    padding: 60px 20px 80px;
   }
-  .container { max-width: 860px; margin: 0 auto; }
-  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
-  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 32px; }
 
-  .card {
-    background: #fff;
-    border-radius: 12px;
-    padding: 28px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  /* 背景网格纹理 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(74,108,247,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,108,247,.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── 顶部 Hero ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6b7aff;
+    border: 1px solid rgba(107,122,255,.35);
+    border-radius: 20px;
+    padding: 4px 14px;
     margin-bottom: 20px;
   }
 
-  label { display: block; font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 6px; }
-  input[type=text], input[type=password] {
-    width: 100%;
-    padding: 10px 14px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+  h1 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #a0b4ff 0%, #6b7aff 40%, #38beff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 14px;
+  }
+
+  .subtitle {
     font-size: 0.95rem;
-    outline: none;
-    transition: border-color .2s;
+    color: #6b7080;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── 卡片 ── */
+  .card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 28px 32px;
     margin-bottom: 16px;
+    backdrop-filter: blur(8px);
   }
-  input:focus { border-color: #4a6cf7; }
 
-  button {
-    width: 100%;
-    padding: 12px;
-    background: #4a6cf7;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
+  .card-label {
+    font-size: 0.72rem;
     font-weight: 600;
-    cursor: pointer;
-    transition: background .2s;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4a6cf7;
+    margin-bottom: 12px;
   }
-  button:hover:not(:disabled) { background: #3858e9; }
-  button:disabled { background: #a0a0a0; cursor: not-allowed; }
 
-  .log {
-    background: #f9f9f7;
-    border-radius: 8px;
-    padding: 14px 16px;
+  input[type=text] {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px;
+    font-size: 0.93rem;
+    color: #e0e0e8;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    margin-bottom: 20px;
+    font-family: inherit;
+  }
+  input[type=text]::placeholder { color: #40404a; }
+  input[type=text]:focus {
+    border-color: rgba(107,122,255,.6);
+    box-shadow: 0 0 0 3px rgba(107,122,255,.12);
+  }
+
+  /* 主按钮：仿 "Enter the Matrix" */
+  #btn {
+    width: 100%;
+    padding: 14px 24px;
+    background: transparent;
+    border: 1px solid rgba(107,122,255,.5);
+    border-radius: 10px;
     font-size: 0.82rem;
-    color: #555;
-    min-height: 60px;
-    line-height: 1.7;
-    white-space: pre-wrap;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #a0b4ff;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .25s, color .25s, box-shadow .25s;
+  }
+  #btn::after {
+    content: ' →';
+    opacity: 0.7;
+  }
+  #btn:hover:not(:disabled) {
+    border-color: #6b7aff;
+    color: #fff;
+    box-shadow: 0 0 24px rgba(107,122,255,.25);
+  }
+  #btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
+  /* ── 进度日志 ── */
+  .log {
+    font-size: 0.8rem;
+    color: #505060;
+    line-height: 1.9;
+    white-space: pre-wrap;
+    font-family: "SFMono-Regular", Menlo, monospace;
+    min-height: 48px;
+  }
+  .log-line-ok   { color: #4ade80; }
+  .log-line-err  { color: #f87171; }
+  .log-line-info { color: #60a5fa; }
+
+  /* ── 结果区 ── */
   .result-wrap { display: none; }
+
   .result-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
+    gap: 8px;
   }
-  .result-header h2 { font-size: 1rem; font-weight: 700; }
+  .result-header-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4a6cf7;
+  }
+  .action-btns { display: flex; gap: 8px; }
+
   .copy-btn {
     width: auto;
     padding: 6px 16px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    background: #f0f0ec;
-    color: #333;
-    border-radius: 6px;
-  }
-  .copy-btn:hover { background: #e0e0dc; }
-
-  #output {
-    font-size: 0.95rem;
-    line-height: 1.85;
-    color: #1a1a1a;
-    max-height: 75vh;
-    overflow-y: auto;
-    background: #fff;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.12);
     border-radius: 8px;
-    padding: 32px 36px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #80809a;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+  }
+  .copy-btn:hover {
+    border-color: rgba(107,122,255,.5);
+    color: #a0b4ff;
   }
 
-  /* 大标题：居中展示，类似图片顶部 */
+  /* ── 笔记输出内容 ── */
+  #output {
+    font-size: 0.93rem;
+    line-height: 1.85;
+    color: #d0d0e0;
+    max-height: 72vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(107,122,255,.3) transparent;
+  }
+  #output::-webkit-scrollbar { width: 4px; }
+  #output::-webkit-scrollbar-thumb { background: rgba(107,122,255,.3); border-radius: 4px; }
+
   #output h1 {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     font-weight: 800;
     text-align: center;
-    margin: 0 0 6px;
-    line-height: 1.3;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #a0b4ff, #6b7aff, #38beff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-
-  /* 二级标题：带色块或下划线，醒目 */
   #output h2 {
-    font-size: 1.1rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    color: #1a1a1a;
-    margin: 2em 0 0.6em;
-    padding: 8px 14px;
-    background: #f0f4ff;
-    border-left: 4px solid #4a6cf7;
-    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b7aff;
+    margin: 2.2em 0 0.8em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(107,122,255,.2);
   }
-
-  /* 三级标题：带序号色彩 */
   #output h3 {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    color: #3858e9;
+    color: #c0c8ff;
     margin: 1.4em 0 0.4em;
   }
+  #output p { margin: 0.55em 0; color: #b0b0c4; }
+  #output ul, #output ol { padding-left: 1.4em; margin: 0.5em 0; }
+  #output li { margin: 0.4em 0; color: #b0b0c4; }
+  #output li strong:first-child { color: #8899ff; }
+  #output strong { color: #d0d8ff; font-weight: 700; }
 
-  #output p { margin: 0.55em 0; }
-
-  #output ul, #output ol {
-    padding-left: 1.5em;
-    margin: 0.5em 0;
-  }
-  #output li {
-    margin: 0.4em 0;
-    line-height: 1.75;
-  }
-  /* 列表项里的 strong 模拟"观点：" 标签样式 */
-  #output li strong:first-child {
-    color: #3858e9;
-  }
-
-  #output strong { font-weight: 700; }
-
-  /* 引用块：金句样式 */
   #output blockquote {
-    margin: 1em 0;
-    padding: 12px 18px;
-    background: #fffbf0;
-    border-left: 4px solid #f5a623;
+    margin: 1.2em 0;
+    padding: 14px 18px;
+    background: rgba(56,190,255,.05);
+    border-left: 3px solid #38beff;
     border-radius: 0 8px 8px 0;
-    color: #333;
-    font-style: normal;
+    color: #90c8e8;
+    font-style: italic;
   }
-
   #output hr {
     border: none;
-    border-top: 1px solid #e8e8e4;
+    border-top: 1px solid rgba(255,255,255,.06);
     margin: 1.5em 0;
   }
-
   #output code {
-    background: #f0f0ec;
-    border-radius: 3px;
-    padding: 1px 5px;
+    background: rgba(107,122,255,.15);
+    border-radius: 4px;
+    padding: 1px 6px;
     font-size: 0.85em;
-  }
-
-  .hint {
-    font-size: 0.78rem;
-    color: #888;
-    margin-top: 8px;
+    color: #a0b4ff;
   }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>🎙 小宇宙播客笔记生成器</h1>
-  <p class="subtitle">粘贴小宇宙单集链接，自动转录并生成结构化笔记</p>
 
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">AI · Podcast · Notes</div>
+    <h1>小宇宙播客<br>笔记生成器</h1>
+    <p class="subtitle">粘贴单集链接，自动转录，AI 提炼结构化笔记</p>
+  </div>
+
+  <!-- 输入卡片 -->
   <div class="card">
-    <label for="url">小宇宙单集链接</label>
+    <div class="card-label">Episode URL</div>
     <input type="text" id="url" placeholder="https://www.xiaoyuzhoufm.com/episode/...">
-
     <button id="btn" onclick="generate()">生成笔记</button>
   </div>
 
+  <!-- 进度卡片 -->
   <div class="card">
-    <div style="font-size:0.85rem;font-weight:600;color:#444;margin-bottom:8px;">进度</div>
+    <div class="card-label">Progress</div>
     <div class="log" id="log">等待开始…</div>
   </div>
 
+  <!-- 结果卡片 -->
   <div class="card result-wrap" id="result-wrap">
     <div class="result-header">
-      <h2>生成结果</h2>
-      <button class="copy-btn" onclick="exportPDF()">导出 PDF</button>
-      <button class="copy-btn" onclick="copyResult()">复制全文</button>
+      <div class="result-header-title">Output</div>
+      <div class="action-btns">
+        <button class="copy-btn" onclick="exportPDF()">导出 PDF</button>
+        <button class="copy-btn" onclick="copyResult()">复制全文</button>
+      </div>
     </div>
     <div id="output"></div>
   </div>
+
 </div>
 
 <script>
@@ -205,8 +304,13 @@ let rawText = '';
 
 function log(msg) {
   const el = document.getElementById('log');
-  el.textContent += (el.textContent === '等待开始…' ? '' : '\n') + msg;
-  if (el.textContent.startsWith('等待开始…')) el.textContent = msg;
+  const line = document.createElement('div');
+  if (msg.startsWith('✅')) line.className = 'log-line-ok';
+  else if (msg.startsWith('❌')) line.className = 'log-line-err';
+  else line.className = 'log-line-info';
+  line.textContent = msg;
+  if (el.textContent === '等待开始…') el.textContent = '';
+  el.appendChild(line);
   el.scrollTop = el.scrollHeight;
 }
 
@@ -217,7 +321,8 @@ async function generate() {
 
   running = true;
   document.getElementById('btn').disabled = true;
-  document.getElementById('log').textContent = '开始处理…';
+  const logEl = document.getElementById('log');
+  logEl.textContent = '';
   document.getElementById('output').innerHTML = '';
   rawText = '';
   document.getElementById('result-wrap').style.display = 'none';
@@ -237,10 +342,8 @@ async function generate() {
       const { done, value } = await reader.read();
       if (done) break;
       buf += decoder.decode(value, { stream: true });
-
       const lines = buf.split('\n');
       buf = lines.pop();
-
       let event = '', data = '';
       for (const line of lines) {
         if (line.startsWith('event: ')) event = line.slice(7).trim();
@@ -272,9 +375,9 @@ function handle(event, data) {
     out.scrollTop = out.scrollHeight;
   } else if (event === 'done') {
     const d = JSON.parse(data);
-    log(`✅ 完成！笔记已生成：${d.title}`);
+    log(`✅ 完成：${d.title}`);
   } else if (event === 'error') {
-    log('❌ 错误：' + data);
+    log('❌ ' + data);
   }
 }
 
@@ -284,18 +387,17 @@ function copyResult() {
 
 function exportPDF() {
   const content = document.getElementById('output').innerHTML;
-  const title = document.title;
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<title>${title}</title>
+<html><head><meta charset="UTF-8"><title>播客笔记</title>
 <style>
-  body { font-family: "PingFang SC", "Helvetica Neue", sans-serif; font-size: 14px; line-height: 1.8; color: #1a1a1a; max-width: 740px; margin: 40px auto; padding: 0 24px; }
-  h1 { font-size: 22px; } h2 { font-size: 17px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-  h3 { font-size: 15px; } ul, ol { padding-left: 20px; } li { margin: 4px 0; }
-  code { background: #f0f0ec; border-radius: 3px; padding: 1px 5px; }
-  blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #666; }
+  body { font-family: "PingFang SC","Helvetica Neue",sans-serif; font-size:14px; line-height:1.8; color:#1a1a1a; max-width:740px; margin:40px auto; padding:0 24px; }
+  h1 { font-size:22px; margin-bottom:4px; }
+  h2 { font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#4a6cf7; border-bottom:1px solid #e0e4ff; padding-bottom:6px; margin-top:2em; }
+  h3 { font-size:15px; color:#333; }
+  ul,ol { padding-left:20px; } li { margin:4px 0; }
+  blockquote { border-left:3px solid #38beff; padding-left:14px; color:#555; font-style:italic; }
+  strong { color:#2a2a4a; }
 </style>
 </head><body>${content}</body></html>`);
   win.document.close();
