@@ -155,6 +155,48 @@
   .log-line-err  { color: #f87171; }
   .log-line-info { color: #60a5fa; }
 
+  /* ── 历史记录 ── */
+  .history-wrap { margin-bottom: 16px; }
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    gap: 12px;
+  }
+  .history-item:hover { border-color: rgba(107,122,255,.3); background: rgba(107,122,255,.05); }
+  .history-item-info { flex: 1; min-width: 0; }
+  .history-item-title {
+    font-size: 0.82rem;
+    color: #c0c0d4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history-item-date { font-size: 0.7rem; color: #50505e; margin-top: 2px; }
+  .history-item-del {
+    font-size: 0.72rem;
+    color: #40404e;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: color .2s;
+  }
+  .history-item-del:hover { color: #f87171; }
+
   /* ── 结果区 ── */
   .result-wrap { display: none; }
 
@@ -275,6 +317,15 @@
     <button id="btn" onclick="generate()">生成笔记</button>
   </div>
 
+  <!-- 历史记录卡片 -->
+  <div class="card history-wrap" id="history-wrap" style="display:none">
+    <div class="history-header">
+      <div class="card-label">History</div>
+      <button class="copy-btn" onclick="clearHistory()">清空</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
   <!-- 进度卡片 -->
   <div class="card">
     <div class="card-label">Progress</div>
@@ -298,6 +349,68 @@
 <script>
 let running = false;
 let rawText = '';
+const HISTORY_KEY = 'podcast_notes_history';
+
+// ── 历史记录 ──────────────────────────────────────────
+function loadHistory() {
+  return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+}
+
+function saveToHistory(title, markdown) {
+  const history = loadHistory();
+  const item = {
+    id: Date.now(),
+    title,
+    date: new Date().toLocaleDateString('zh-CN'),
+    markdown,
+  };
+  history.unshift(item);
+  if (history.length > 50) history.pop(); // 最多保留 50 条
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  const history = loadHistory();
+  const wrap = document.getElementById('history-wrap');
+  const list = document.getElementById('history-list');
+  if (!history.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  list.innerHTML = history.map(item => `
+    <div class="history-item" onclick="loadNote(${item.id})">
+      <div class="history-item-info">
+        <div class="history-item-title">${item.title}</div>
+        <div class="history-item-date">${item.date}</div>
+      </div>
+      <span class="history-item-del" onclick="deleteNote(event,${item.id})">删除</span>
+    </div>
+  `).join('');
+}
+
+function loadNote(id) {
+  const item = loadHistory().find(h => h.id === id);
+  if (!item) return;
+  rawText = item.markdown;
+  document.getElementById('output').innerHTML = marked.parse(rawText);
+  document.getElementById('result-wrap').style.display = 'block';
+  document.getElementById('result-wrap').scrollIntoView({ behavior: 'smooth' });
+}
+
+function deleteNote(e, id) {
+  e.stopPropagation();
+  const history = loadHistory().filter(h => h.id !== id);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('确认清空所有历史记录？')) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+}
+
+// 页面加载时渲染历史
+renderHistory();
 
 function log(msg) {
   const el = document.getElementById('log');
@@ -373,6 +486,7 @@ function handle(event, data) {
   } else if (event === 'done') {
     const d = JSON.parse(data);
     log(`✅ 完成：${d.title}`);
+    saveToHistory(d.title, rawText);
   } else if (event === 'error') {
     log('❌ ' + data);
   }
