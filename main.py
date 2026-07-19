@@ -67,10 +67,13 @@ async def generate(req: GenRequest):
                 max_tokens=8192,
                 stream=True,
             )
+            raw = ""
             for chunk in stream_resp:
-                text = chunk.choices[0].delta.content or ""
-                if text:
-                    yield send("chunk", text)
+                raw += chunk.choices[0].delta.content or ""
+
+            # 格式修正：确保标题、分隔线、列表项前后有空行
+            normalized = fix_markdown(raw)
+            yield send("chunk", normalized)
 
             yield send("done", json.dumps({"title": meta["title"]}, ensure_ascii=False))
 
@@ -211,6 +214,30 @@ def transcribe_audio(audio_url: str, dashscope_key: str) -> str:
             raise RuntimeError(f"转录任务失败: {r}")
 
     raise RuntimeError("转录超时，请稍后重试")
+
+
+def fix_markdown(text: str) -> str:
+    """确保 Markdown 标题、分隔线、列表项前后有空行，让渲染器正确识别结构。"""
+    lines = text.splitlines()
+    out = []
+    for i, line in enumerate(lines):
+        prev = out[-1] if out else ""
+        # 标题行前加空行
+        if re.match(r'^#{1,3} ', line) and prev.strip():
+            out.append("")
+        # 分隔线前加空行
+        if line.strip() == "---" and prev.strip() and prev.strip() != "---":
+            out.append("")
+        out.append(line)
+        # 标题行后加空行
+        if re.match(r'^#{1,3} ', line):
+            out.append("")
+        # 分隔线后加空行
+        if line.strip() == "---":
+            out.append("")
+    # 合并连续空行为最多两行
+    result = re.sub(r'\n{3,}', '\n\n', "\n".join(out))
+    return result.strip()
 
 
 def build_prompt(meta: dict, shownotes: str, transcript: str) -> str:

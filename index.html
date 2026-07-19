@@ -368,9 +368,7 @@ function handle(event, data) {
   } else if (event === 'chunk') {
     wrap.style.display = 'block';
     rawText += data;
-    // 确保 ## 标题前有换行，避免 DeepSeek 流式输出时标题粘连
-    const normalized = rawText.replace(/(^|\S)(#{1,3} )/gm, '$1\n\n$2');
-    out.innerHTML = marked.parse(normalized);
+    out.innerHTML = marked.parse(rawText);
     out.scrollTop = out.scrollHeight;
   } else if (event === 'done') {
     const d = JSON.parse(data);
