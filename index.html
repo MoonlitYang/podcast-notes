@@ -479,12 +479,18 @@ function handle(event, data) {
   if (event === 'progress') {
     log(data);
   } else if (event === 'chunk') {
+    // 流式块（保留兼容）
     wrap.style.display = 'block';
-    rawText = JSON.parse(data);
+    rawText += data;
     out.innerHTML = marked.parse(rawText);
     out.scrollTop = out.scrollHeight;
   } else if (event === 'done') {
     const d = JSON.parse(data);
+    if (d.markdown) {
+      rawText = d.markdown;
+      wrap.style.display = 'block';
+      out.innerHTML = marked.parse(rawText);
+    }
     log(`✅ 完成：${d.title}`);
     saveToHistory(d.title, rawText);
   } else if (event === 'error') {

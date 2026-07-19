@@ -71,12 +71,10 @@ async def generate(req: GenRequest):
             for chunk in stream_resp:
                 raw += chunk.choices[0].delta.content or ""
 
-            # 格式修正：确保标题、分隔线、列表项前后有空行
+            # 格式修正后放入 done 事件，避免 SSE 换行问题
             normalized = fix_markdown(raw)
-            # JSON 编码避免换行符破坏 SSE 协议
-            yield send("chunk", json.dumps(normalized, ensure_ascii=False))
 
-            yield send("done", json.dumps({"title": meta["title"]}, ensure_ascii=False))
+            yield send("done", json.dumps({"title": meta["title"], "markdown": normalized}, ensure_ascii=False))
 
         except Exception as e:
             yield send("error", str(e))
