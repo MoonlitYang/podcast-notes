@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小宇宙播客笔记生成器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .container { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 32px; }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    margin-bottom: 20px;
+  }
+
+  label { display: block; font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 6px; }
+  input[type=text], input[type=password] {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color .2s;
+    margin-bottom: 16px;
+  }
+  input:focus { border-color: #4a6cf7; }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    background: #4a6cf7;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  button:hover:not(:disabled) { background: #3858e9; }
+  button:disabled { background: #a0a0a0; cursor: not-allowed; }
+
+  .log {
+    background: #f9f9f7;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    color: #555;
+    min-height: 60px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .result-wrap { display: none; }
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .result-header h2 { font-size: 1rem; font-weight: 700; }
+  .copy-btn {
+    width: auto;
+    padding: 6px 16px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: #f0f0ec;
+    color: #333;
+    border-radius: 6px;
+  }
+  .copy-btn:hover { background: #e0e0dc; }
+
+  #output {
+    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    color: #1a1a1a;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: #f9f9f7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .hint {
+    font-size: 0.78rem;
+    color: #888;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎙 小宇宙播客笔记生成器</h1>
+  <p class="subtitle">输入阿里云 DashScope API Key 和小宇宙单集链接，自动转录并生成结构化笔记</p>
+
+  <div class="card">
+    <label for="url">小宇宙单集链接</label>
+    <input type="text" id="url" placeholder="https://www.xiaoyuzhoufm.com/episode/...">
+
+    <button id="btn" onclick="generate()">生成笔记</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:0.85rem;font-weight:600;color:#444;margin-bottom:8px;">进度</div>
+    <div class="log" id="log">等待开始…</div>
+  </div>
+
+  <div class="card result-wrap" id="result-wrap">
+    <div class="result-header">
+      <h2>生成结果</h2>
+      <button class="copy-btn" onclick="copyResult()">复制全文</button>
+    </div>
+    <div id="output"></div>
+  </div>
+</div>
+
+<script>
+let running = false;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += (el.textContent === '等待开始…' ? '' : '\n') + msg;
+  if (el.textContent.startsWith('等待开始…')) el.textContent = msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function generate() {
+  if (running) return;
+  const url = document.getElementById('url').value.trim();
+  if (!url) { alert('请输入小宇宙链接'); return; }
+
+  running = true;
+  document.getElementById('btn').disabled = true;
+  document.getElementById('log').textContent = '开始处理…';
+  document.getElementById('output').textContent = '';
+  document.getElementById('result-wrap').style.display = 'none';
+
+  try {
+    const resp = await fetch('/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episode_url: url }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      let event = '', data = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) event = line.slice(7).trim();
+        else if (line.startsWith('data: ')) data = line.slice(6);
+        else if (line === '' && event) {
+          handle(event, data);
+          event = ''; data = '';
+        }
+      }
+    }
+  } catch(e) {
+    log('❌ 网络错误：' + e.message);
+  } finally {
+    running = false;
+    document.getElementById('btn').disabled = false;
+  }
+}
+
+function handle(event, data) {
+  const out = document.getElementById('output');
+  const wrap = document.getElementById('result-wrap');
+
+  if (event === 'progress') {
+    log(data);
+  } else if (event === 'chunk') {
+    wrap.style.display = 'block';
+    out.textContent += data;
+    out.scrollTop = out.scrollHeight;
+  } else if (event === 'done') {
+    const d = JSON.parse(data);
+    log(`✅ 完成！笔记已生成：${d.title}`);
+  } else if (event === 'error') {
+    log('❌ 错误：' + data);
+  }
+}
+
+function copyResult() {
+  const text = document.getElementById('output').textContent;
+  navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+}
+</script>
+</body>
+</html>
