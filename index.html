@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>小宇宙播客笔记生成器</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -84,17 +85,30 @@
   .copy-btn:hover { background: #e0e0dc; }
 
   #output {
-    font-family: "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 0.82rem;
-    white-space: pre-wrap;
-    line-height: 1.7;
+    font-size: 0.92rem;
+    line-height: 1.8;
     color: #1a1a1a;
-    max-height: 60vh;
+    max-height: 70vh;
     overflow-y: auto;
     background: #f9f9f7;
     border-radius: 8px;
-    padding: 16px;
+    padding: 20px 24px;
   }
+  #output h1, #output h2, #output h3 {
+    margin: 1.2em 0 0.4em;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  #output h1 { font-size: 1.3rem; }
+  #output h2 { font-size: 1.1rem; border-bottom: 1px solid #e8e8e4; padding-bottom: 4px; }
+  #output h3 { font-size: 1rem; }
+  #output p { margin: 0.6em 0; }
+  #output ul, #output ol { padding-left: 1.4em; margin: 0.4em 0; }
+  #output li { margin: 0.3em 0; }
+  #output strong { font-weight: 700; }
+  #output code { background: #eeeee8; border-radius: 3px; padding: 1px 5px; font-size: 0.85em; }
+  #output pre { background: #eeeee8; border-radius: 6px; padding: 12px; overflow-x: auto; }
+  #output blockquote { border-left: 3px solid #ccc; margin: 0.6em 0; padding-left: 12px; color: #666; }
 
   .hint {
     font-size: 0.78rem;
@@ -123,6 +137,7 @@
   <div class="card result-wrap" id="result-wrap">
     <div class="result-header">
       <h2>生成结果</h2>
+      <button class="copy-btn" onclick="exportPDF()">导出 PDF</button>
       <button class="copy-btn" onclick="copyResult()">复制全文</button>
     </div>
     <div id="output"></div>
@@ -131,6 +146,7 @@
 
 <script>
 let running = false;
+let rawText = '';
 
 function log(msg) {
   const el = document.getElementById('log');
@@ -147,7 +163,8 @@ async function generate() {
   running = true;
   document.getElementById('btn').disabled = true;
   document.getElementById('log').textContent = '开始处理…';
-  document.getElementById('output').textContent = '';
+  document.getElementById('output').innerHTML = '';
+  rawText = '';
   document.getElementById('result-wrap').style.display = 'none';
 
   try {
@@ -195,7 +212,8 @@ function handle(event, data) {
     log(data);
   } else if (event === 'chunk') {
     wrap.style.display = 'block';
-    out.textContent += data;
+    rawText += data;
+    out.innerHTML = marked.parse(rawText);
     out.scrollTop = out.scrollHeight;
   } else if (event === 'done') {
     const d = JSON.parse(data);
@@ -206,8 +224,28 @@ function handle(event, data) {
 }
 
 function copyResult() {
-  const text = document.getElementById('output').textContent;
-  navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+  navigator.clipboard.writeText(rawText).then(() => alert('已复制到剪贴板'));
+}
+
+function exportPDF() {
+  const content = document.getElementById('output').innerHTML;
+  const title = document.title;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  body { font-family: "PingFang SC", "Helvetica Neue", sans-serif; font-size: 14px; line-height: 1.8; color: #1a1a1a; max-width: 740px; margin: 40px auto; padding: 0 24px; }
+  h1 { font-size: 22px; } h2 { font-size: 17px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 15px; } ul, ol { padding-left: 20px; } li { margin: 4px 0; }
+  code { background: #f0f0ec; border-radius: 3px; padding: 1px 5px; }
+  blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #666; }
+</style>
+</head><body>${content}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 500);
 }
 </script>
 </body>
