@@ -217,6 +217,8 @@ def transcribe_audio(audio_url: str, dashscope_key: str) -> str:
 
 def fix_markdown(text: str) -> str:
     """确保 Markdown 标题、分隔线、列表项前后有空行，让渲染器正确识别结构。"""
+    # DeepSeek 有时输出字面量 \n 而非真正换行符，先统一转换
+    text = text.replace('\\n', '\n')
     lines = text.splitlines()
     out = []
     for i, line in enumerate(lines):
