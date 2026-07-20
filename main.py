@@ -39,10 +39,11 @@ async def generate(req: GenRequest):
         try:
             # 1. 解析小宇宙链接
             yield send("progress", "正在解析小宇宙链接…")
-            meta, shownotes, transcript = await asyncio.get_event_loop().run_in_executor(
+            meta, shownotes, transcript, timeline = await asyncio.get_event_loop().run_in_executor(
                 None, fetch_episode, req.episode_url, dashscope_key
             )
-            yield send("progress", f"✅ 获取到：{meta['title']}")
+            tl_msg = f"✅ 获取到：{meta['title']}（时间线 {len(timeline)} 段）" if timeline else f"✅ 获取到：{meta['title']}"
+            yield send("progress", tl_msg)
 
             if not transcript:
                 yield send("progress", "音频转录中，可能需要 2-5 分钟…")
@@ -59,7 +60,7 @@ async def generate(req: GenRequest):
 
             yield send("progress", "正在用 AI 生成结构化笔记…")
             client = OpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com")
-            prompt = build_prompt(meta, shownotes, transcript)
+            prompt = build_prompt(meta, shownotes, transcript, timeline)
 
             stream_resp = client.chat.completions.create(
                 model="deepseek-chat",
@@ -91,7 +92,7 @@ def _http(url: str, headers: dict = None, data=None, timeout=30):
 
 
 def fetch_episode(episode_url: str, dashscope_key: str):
-    """解析小宇宙单集页面，返回 (meta, shownotes, official_transcript)"""
+    """解析小宇宙单集页面，返回 (meta, shownotes, official_transcript, timeline)"""
     import html, re
 
     if not episode_url.startswith("http"):
@@ -144,6 +145,50 @@ def fetch_episode(episode_url: str, dashscope_key: str):
                 transcript = t
                 break
 
+    # 小宇宙 AI 时间线（highlights / chapters / aiSummary.chapters 等多种字段名）
+    timeline = []
+
+    def secs_to_mmss(s):
+        try:
+            s = int(float(s))
+            return f"{s // 60:02d}:{s % 60:02d}"
+        except Exception:
+            return str(s)
+
+    def extract_timeline(node):
+        if not isinstance(node, dict):
+            return []
+        # 常见字段名列表，按优先级尝试
+        for key in ("highlights", "chapters", "sections", "topics", "aiTimeline", "timeline"):
+            v = node.get(key)
+            if isinstance(v, list) and v:
+                items = []
+                for item in v:
+                    if not isinstance(item, dict):
+                        continue
+                    start = item.get("startTime") or item.get("start") or item.get("time") or item.get("timestamp") or 0
+                    text = (item.get("title") or item.get("text") or item.get("content") or "").strip()
+                    if text:
+                        items.append({"time": secs_to_mmss(start), "title": text})
+                if items:
+                    return items
+        # 递归找 aiNote / aiSummary 子节点
+        for key in ("aiNote", "aiSummary", "summary", "note"):
+            v = node.get(key)
+            if isinstance(v, dict):
+                result = extract_timeline(v)
+                if result:
+                    return result
+        return []
+
+    try:
+        timeline = extract_timeline(ep)
+        if not timeline:
+            # 再往上找一层 pageProps
+            timeline = extract_timeline(nd.get("props", {}).get("pageProps", {}))
+    except Exception:
+        timeline = []
+
     # shownotes
     raw_desc = ep.get("description", "") or ep.get("shownotes", "")
 
@@ -168,7 +213,7 @@ def fetch_episode(episode_url: str, dashscope_key: str):
         "audio_url": audio_url,
         "url": episode_url,
     }
-    return meta, shownotes, transcript
+    return meta, shownotes, transcript, timeline
 
 
 def transcribe_audio(audio_url: str, dashscope_key: str) -> str:
@@ -241,8 +286,34 @@ def fix_markdown(text: str) -> str:
     return result.strip()
 
 
-def build_prompt(meta: dict, shownotes: str, transcript: str) -> str:
+def build_prompt(meta: dict, shownotes: str, transcript: str, timeline: list) -> str:
     duration_min = meta["duration_sec"] // 60
+
+    # 格式化时间线供模型参考
+    if timeline:
+        tl_lines = "\n".join(f"{i+1}. [{item['time']}] {item['title']}" for i, item in enumerate(timeline))
+        timeline_section = f"小宇宙官方时间线（共 {len(timeline)} 段）：\n{tl_lines}"
+        timeline_instruction = f"""## 三、时间线摘要
+
+以下是小宇宙官方提供的时间线，共 {len(timeline)} 段，请严格以此为依据，每段标注对应时间戳，格式如下：
+
+1. **[MM:SS] 阶段标题**
+   [1–2 句概括本阶段讨论内容与结论]
+
+2. **[MM:SS] 阶段标题**
+   [1–2 句概括本阶段讨论内容与结论]"""
+    else:
+        timeline_section = "小宇宙官方时间线：（未获取到，请根据文字稿自行划分）"
+        timeline_instruction = """## 三、时间线摘要
+
+[根据文字稿内容自行划分阶段，用有序列表，每阶段之间空一行，格式如下：]
+
+1. **[MM:SS] 阶段标题**
+   [1–2 句概括本阶段讨论内容与结论]
+
+2. **[MM:SS] 阶段标题**
+   [1–2 句概括本阶段讨论内容与结论]"""
+
     return f"""以下是播客信息和文字稿，请据此生成归档笔记。
 
 播客：{meta['podcast_title']}
@@ -253,6 +324,8 @@ def build_prompt(meta: dict, shownotes: str, transcript: str) -> str:
 
 Shownotes：
 {shownotes[:3000] if shownotes else '（无）'}
+
+{timeline_section}
 
 播客文字稿：
 {transcript[:12000] if transcript else '（无转录）'}
@@ -293,15 +366,7 @@ Shownotes：
 
 ---
 
-## 三、时间线摘要
-
-[按顺序划分阶段，用有序列表，每阶段之间空一行，格式如下：]
-
-1. ### 【阶段标题】
-   [1–2 句概括本阶段讨论内容与结论]
-
-2. ### 【阶段标题】
-   [1–2 句概括本阶段讨论内容与结论]
+{timeline_instruction}
 
 ---
 
@@ -331,4 +396,5 @@ Shownotes：
 - 金句标准：读完让人想停下来思考
 - 每个模块之间必须有 `---` 分隔线
 - 每条观点、每个阶段、每组 Q&A 之间必须有空行
+- 时间线摘要必须使用官方时间线提供的时间戳，不得自行捏造
 - 直接输出笔记正文，不要有任何开场白或"好的"等前缀"""
